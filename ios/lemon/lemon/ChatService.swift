@@ -2,11 +2,23 @@ import Foundation
 
 struct ChatMessageDTO: Codable {
     let role: String
-    let content: String
+    let content: String?
+    let tool_calls: [ToolCallDTO]?
+}
+
+struct ToolCallDTO: Codable {
+    let id: String
+    let type: String
+    let function: ToolFunctionDTO
+}
+
+struct ToolFunctionDTO: Codable {
+    let name: String
+    let arguments: String
 }
 
 final class ChatService {
-    private let baseURL = URL(string: "https://backend-mhrc5sccw-jseeleys-projects.vercel.app/api/chat.js")!
+    private let baseURL = URL(string: "https://backend-jseeleys-projects.vercel.app/api/chat.js")!
     private let schema: [String: Any]
     
     init() {
@@ -27,8 +39,14 @@ final class ChatService {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        let bodyMessages: [[String: Any]] = messages.map { msg in
+            var dict: [String: Any] = ["role": msg.role]
+            if let text = msg.content { dict["content"] = text }
+            if let calls = msg.tool_calls { dict["tool_calls"] = calls.map { _ in [:] } } // not expected for client msgs
+            return dict
+        }
         let body: [String: Any] = [
-            "messages": messages.map { ["role": $0.role, "content": $0.content] },
+            "messages": bodyMessages,
             "schema": schema
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

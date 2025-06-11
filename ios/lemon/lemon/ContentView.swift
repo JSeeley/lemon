@@ -77,12 +77,15 @@ struct ContentView: View {
                 .padding()
             }
             .navigationTitle("🍋 Lemon")
+            .onAppear {
+                if messages.isEmpty {
+                    startNewSession()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("New Session") {
-                        messages.removeAll()
-                        errorMessage = nil
-                        inputText = ""
+                        startNewSession()
                     }
                 }
             }
@@ -100,14 +103,43 @@ struct ContentView: View {
 
         Task {
             do {
-                let dtoMsgs = messages.map { ChatMessageDTO(role: $0.role, content: $0.content) }
+                let dtoMsgs = messages.map { ChatMessageDTO(role: $0.role, content: $0.content, tool_calls: nil) }
                 let assistantDTO = try await chatService.send(messages: dtoMsgs)
-                let assistantMsg = Message(role: assistantDTO.role, content: assistantDTO.content)
-                messages.append(assistantMsg)
+                if let text = assistantDTO.content, !text.isEmpty {
+                    let assistantMsg = Message(role: assistantDTO.role, content: text)
+                    messages.append(assistantMsg)
+                }
+                if let calls = assistantDTO.tool_calls {
+                    // For now, just show a placeholder message that the request was submitted
+                    for call in calls {
+                        let text = "\u{2705} Called \(call.function.name) with args: \(call.function.arguments)"
+                        let callMsg = Message(role: assistantDTO.role, content: text)
+                        messages.append(callMsg)
+                    }
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
             isSending = false
+        }
+    }
+
+    // MARK: - Session helpers
+
+    private func startNewSession() {
+        messages.removeAll()
+        errorMessage = nil
+        inputText = ""
+
+        Task {
+            do {
+                let assistantDTO = try await chatService.send(messages: [])
+                if let text = assistantDTO.content {
+                    messages.append(Message(role: assistantDTO.role, content: text))
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

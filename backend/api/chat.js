@@ -28,6 +28,17 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "'messages' array is required in request body" });
   }
 
+  // If no conversation yet, immediately ask first initial question without calling OpenAI
+  if (messages.length === 0) {
+    const schemaObj = clientSchema && typeof clientSchema === "object" ? clientSchema : collectorTool;
+    if (schemaObj && schemaObj.parameters && Array.isArray(schemaObj.parameters.required)) {
+      const firstKey = schemaObj.parameters.required[0];
+      const prop = schemaObj.parameters.properties?.[firstKey];
+      const initialQ = prop?.x_initial_question || `Please provide ${firstKey}.`;
+      return res.status(200).json({ message: { role: "assistant", content: initialQ } });
+    }
+  }
+
   const systemMsg = {
     role: "system",
     content:
