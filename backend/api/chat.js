@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const { messages } = req.body;
+  const { messages, schema: clientSchema } = req.body;
   if (!Array.isArray(messages)) {
     return res.status(400).json({ error: "'messages' array is required in request body" });
   }
@@ -31,16 +31,19 @@ export default async function handler(req, res) {
   const systemMsg = {
     role: "system",
     content:
-      "You are Lemon, a friendly AI travel agent. Ask follow-up questions until you have all required fields to call the function."
+      "You are Lemon, a friendly AI travel agent. You have a function definition with custom metadata `x_initial_question` for each parameter. When any required field is missing, ask ONLY the question specified in that parameter's `x_initial_question`. Once all required fields are collected, call the function with complete arguments."
   };
 
   const openaiMessages = [systemMsg, ...messages];
+
+  // Pick schema: client-supplied takes precedence if valid
+  const schemaForCall = clientSchema && typeof clientSchema === "object" ? clientSchema : collectorTool;
 
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: openaiMessages,
-      tools: collectorTool ? [{ type: "function", function: collectorTool }] : undefined,
+      tools: schemaForCall ? [{ type: "function", function: schemaForCall }] : undefined,
       temperature: 0.7
     });
 
