@@ -1,7 +1,13 @@
 import Foundation
 
 struct TripPlannerService {
-    private let baseURL = URL(string: "http://localhost:3000/api/plan")!
+    private let baseURL: URL = {
+        #if DEBUG
+        return URL(string: "http://localhost:3000/api/plan")!
+        #else
+        return URL(string: "https://backend-n4fvlxco1-jseeleys-projects.vercel.app/api/plan")!
+        #endif
+    }()
 
     func planTrip(destination: String, startDate: Date, endDate: Date) async throws -> String {
         var request = URLRequest(url: baseURL)
