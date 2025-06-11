@@ -1,84 +1,181 @@
 import SwiftUI
 
-/// Presents a city-to-city route like "Paris -> Fly 8 h -> Rome -> Train 3 h -> Paris" in a graphic timeline.
+/// Visualizes a route with expandable city cards connected by vertical dotted lines that show transport info.
 struct RouteView: View {
-    struct Leg: Identifiable {
+
+    // MARK: - Data models
+    struct City: Identifiable {
         let id = UUID()
-        let fromCity: String
-        let transportEmoji: String
+        let name: String
+    }
+
+    struct Transport: Identifiable {
+        let id = UUID()
+        let emoji: String
         let duration: String
     }
 
-    private let legs: [Leg]
-    private let finalCity: String
+    private let cities: [City]
+    private let transports: [Transport] // transports[i] connects cities[i] -> cities[i+1]
+
+    // Track which cards are expanded
+    @State private var expandedIDs: Set<UUID> = []
 
     init(route: String) {
-        // Very simple parser for the "City -> Transport & duration -> City" format
-        // Split on arrow, trim whitespace
+        // Parse "City -> Transport & duration -> City" repeated tokens
         let tokens = route.components(separatedBy: "->")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: ".")) }
             .filter { !$0.isEmpty }
 
-        var tmpLegs: [Leg] = []
-        var i = 0
-        while i + 2 < tokens.count { // ensure city, transport, city triple
-            let cityA = tokens[i]
-            let transportSegment = tokens[i + 1]
-            let cityB = tokens[i + 2]
+        var tmpCities: [City] = []
+        var tmpTransports: [Transport] = []
 
-            let (emoji, duration) = RouteView.parseTransport(transportSegment)
-            tmpLegs.append(Leg(fromCity: cityA, transportEmoji: emoji, duration: duration))
-            i += 2 // Move to next city as start of next leg (overlap one token)
+        var i = 0
+        while i < tokens.count {
+            // Expect pattern city, transport, city, transport, ... ending with city
+            let cityName = tokens[i]
+            tmpCities.append(City(name: cityName))
+
+            if i + 2 < tokens.count {
+                let transportSegment = tokens[i + 1]
+                let (emoji, duration) = RouteView.parseTransport(transportSegment)
+                tmpTransports.append(Transport(emoji: emoji, duration: duration))
+            }
+            i += 2
         }
-        self.legs = tmpLegs
-        self.finalCity = tokens.last ?? ""
+
+        self.cities = tmpCities
+        self.transports = tmpTransports
     }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                ForEach(legs) { leg in
-                    Text(leg.fromCity)
-                        .font(.title2)
-                        .padding(.top, leg.id == legs.first?.id ? 0 : 20)
+            VStack(alignment: .center, spacing: 0) {
+                ForEach(cities.indices, id: \.self) { idx in
+                    let city = cities[idx]
 
-                    HStack(alignment: .center) {
-                        ZStack {
-                            // Dashed baseline
-                            Rectangle()
-                                .foregroundColor(.clear)
-                                .frame(height: 1)
-                                .overlay(
-                                    Rectangle()
-                                        .stroke(style: StrokeStyle(lineWidth: 1, dash: [6]))
-                                        .foregroundColor(.gray.opacity(0.5))
-                                )
+                    CityCard(city: city,
+                             isExpanded: expandedIDs.contains(city.id),
+                             toggle: { toggle(city.id) })
 
-                            // Emoji + duration badge
-                            HStack(spacing: 4) {
-                                Text(leg.transportEmoji)
-                                Text(leg.duration)
-                                    .font(.subheadline)
-                            }
-                            .padding(.horizontal, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color(.systemBackground))
-                            )
-                        }
+                    if idx < transports.count {
+                        TransportConnector(transport: transports[idx])
                     }
-                    .padding(.horizontal)
                 }
-
-                // Final city
-                Text(finalCity)
-                    .font(.title2)
-                    .padding(.top, 20)
             }
-            .padding()
+            .padding(.vertical)
         }
         .navigationTitle("Trip Route")
     }
+
+    private func toggle(_ id: UUID) {
+        if expandedIDs.contains(id) {
+            expandedIDs.remove(id)
+        } else {
+            expandedIDs.insert(id)
+        }
+    }
+
+    // MARK: - Sub-Views
+
+    struct CityCard: View {
+        let city: City
+        let isExpanded: Bool
+        let toggle: () -> Void
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(city.name)
+                        .font(.title3.weight(.semibold))
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .rotationEffect(isExpanded ? Angle(degrees: 180) : .zero)
+                        .foregroundColor(.gray)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture(perform: toggle)
+
+                if isExpanded {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 6) {
+                        ToDoRow(title: "Lodging")
+                        ToDoRow(title: "Dinner")
+                    }
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.yellow.opacity(0.6), lineWidth: 1)
+            )
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+    }
+
+    struct ToDoRow: View {
+        let title: String
+        var body: some View {
+            HStack {
+                Image(systemName: "square") // empty checkbox
+                    .foregroundColor(.gray)
+                Text(title)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.secondarySystemBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.yellow.opacity(0.6), lineWidth: 1)
+            )
+            .font(.subheadline)
+        }
+    }
+
+    struct TransportConnector: View {
+        let transport: Transport
+
+        var body: some View {
+            VStack(spacing: 4) {
+                DottedLine()
+                    .frame(width: 1, height: 20)
+
+                HStack(spacing: 4) {
+                    Text(transport.emoji)
+                    Text(transport.duration)
+                        .font(.subheadline)
+                }
+
+                DottedLine()
+                    .frame(width: 1, height: 20)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    struct DottedLine: View {
+        var body: some View {
+            Rectangle()
+                .foregroundColor(.clear)
+                .overlay(
+                    Rectangle()
+                        .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
+                        .foregroundColor(.gray.opacity(0.5))
+                )
+        }
+    }
+
+    // MARK: - Parser helpers
 
     static func parseTransport(_ segment: String) -> (String, String) {
         let lower = segment.lowercased()
@@ -93,9 +190,7 @@ struct RouteView: View {
             emoji = "🚗"
         }
 
-        // Remove transport words to leave duration text
         var duration = segment.replacingOccurrences(of: "(?i)(fly|flight|plane|by plane|train|by train|drive|driving|car|bus|by bus)", with: "", options: .regularExpression)
-        // Remove common extra symbols such as "&" or "~"
         duration = duration.replacingOccurrences(of: "&", with: "")
         duration = duration.replacingOccurrences(of: "~", with: "")
         duration = duration.trimmingCharacters(in: .whitespaces)
@@ -104,5 +199,5 @@ struct RouteView: View {
 }
 
 #Preview {
-    RouteView(route: "Chicago -> Fly 8 h -> Paris -> Train 11 h -> Rome -> Fly 10 h -> Chicago")
+    RouteView(route: "Seattle -> Fly 10h -> Paris -> Train 6h -> Toulouse -> Car 3h -> Gordes -> Car 1.5h -> Saint Tropez -> Car 1.5h -> Nice -> Train 5h -> Paris -> Fly 10h -> Seattle")
 } 

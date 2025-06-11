@@ -89,6 +89,7 @@ struct ChatTab: View {
 
     @State private var messages: [Message] = []
     @State private var inputText = ""
+    @FocusState private var isInputFocused: Bool
     @State private var isSending = false
     @State private var errorMessage: String?
 
@@ -122,14 +123,12 @@ struct ChatTab: View {
 
                 HStack {
                     TextField("Message", text: $inputText)
-                        .textFieldStyle(.roundedBorder)
+                        .focused($isInputFocused)
                         .submitLabel(.send)
                         .onSubmit(sendMessage)
-                    Button(action: sendMessage) {
-                        if isSending { ProgressView() } else { Image(systemName: "paperplane.fill") }
-                    }
-                    .tint(.yellow)
-                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(Capsule())
                 }
                 .padding()
             }
@@ -139,7 +138,10 @@ struct ChatTab: View {
                     .ignoresSafeArea()
             )
             .navigationTitle("🍋 Chat")
-            .onAppear(perform: startNewSession)
+            .onAppear {
+                startNewSession()
+                isInputFocused = true
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("New Session", action: startNewSession)
@@ -160,7 +162,10 @@ struct ChatTab: View {
         isSending = true
 
         Task {
-            defer { isSending = false }
+            defer {
+                isSending = false
+                isInputFocused = true
+            }
             do {
                 let dtoMsgs = messages.map { ChatMessageDTO(role: $0.role, content: $0.content, tool_calls: nil) }
                 let assistantDTO = try await chatService.send(messages: dtoMsgs)
@@ -175,6 +180,11 @@ struct ChatTab: View {
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+
+        // Immediately restore focus so keyboard stays up
+        DispatchQueue.main.async {
+            isInputFocused = true
         }
     }
 
