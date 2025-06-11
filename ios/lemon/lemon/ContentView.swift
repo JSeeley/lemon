@@ -7,18 +7,89 @@
 
 import SwiftUI
 
+/// Root view that hosts the TabView (Itinerary / To-Do / Chat).
 struct ContentView: View {
+    enum Tab { case itinerary, todo, chat }
+
+    @State private var selectedTab: Tab = .chat
+    @State private var routeString: String?
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            ItineraryTab(route: routeString)
+                .tabItem { Label("Itinerary", systemImage: "map") }
+                .tag(Tab.itinerary)
+
+            TodoTab()
+                .tabItem { Label("To-Do", systemImage: "checkmark") }
+                .tag(Tab.todo)
+
+            ChatTab { newRoute in
+                routeString = newRoute
+                selectedTab = .itinerary
+            }
+            .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right") }
+            .tag(Tab.chat)
+        }
+    }
+}
+
+// MARK: - Itinerary Tab
+
+struct ItineraryTab: View {
+    let route: String?
+
+    var body: some View {
+        NavigationStack {
+            if let route {                
+                RouteView(route: route)
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "map")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    Text("Your route will appear here once planned.")
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - To-Do Tab (placeholder)
+
+struct TodoTab: View {
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 48))
+                    .foregroundColor(.gray)
+                Text("To-Do list coming soon!")
+                    .font(.headline)
+            }
+            .padding()
+        }
+    }
+}
+
+// MARK: - Chat Tab
+
+struct ChatTab: View {
+    typealias RouteHandler = (String) -> Void
+    let onRouteDetected: RouteHandler
+
     struct Message: Identifiable {
         let id = UUID()
-        let role: String // "user" or "assistant"
+        let role: String
         let content: String
     }
 
     @State private var messages: [Message] = []
-    @State private var inputText: String = ""
+    @State private var inputText = ""
     @State private var isSending = false
-    @State private var showingRoute = false
-    @State private var routeString: String?
     @State private var errorMessage: String?
 
     private let chatService = ChatService()
@@ -45,8 +116,8 @@ struct ContentView: View {
                     }
                 }
 
-                if let error = errorMessage {
-                    Text(error).foregroundColor(.red)
+                if let errorMessage {
+                    Text(errorMessage).foregroundColor(.red)
                 }
 
                 HStack {
@@ -55,11 +126,7 @@ struct ContentView: View {
                         .submitLabel(.send)
                         .onSubmit(sendMessage)
                     Button(action: sendMessage) {
-                        if isSending {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "paperplane.fill")
-                        }
+                        if isSending { ProgressView() } else { Image(systemName: "paperplane.fill") }
                     }
                     .tint(.yellow)
                     .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
@@ -71,26 +138,17 @@ struct ContentView: View {
                 LinearGradient(colors: [Color.white, Color.yellow.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing)
                     .ignoresSafeArea()
             )
-            .navigationTitle("🍋 Lemon")
-            .onAppear {
-                if messages.isEmpty {
-                    startNewSession()
-                }
-            }
+            .navigationTitle("🍋 Chat")
+            .onAppear(perform: startNewSession)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("New Session") {
-                        startNewSession()
-                    }
-                }
-            }
-            .sheet(isPresented: $showingRoute) {
-                if let route = routeString {
-                    RouteView(route: route)
+                    Button("New Session", action: startNewSession)
                 }
             }
         }
     }
+
+    // MARK: - Networking
 
     private func sendMessage() {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -102,35 +160,23 @@ struct ContentView: View {
         isSending = true
 
         Task {
+            defer { isSending = false }
             do {
                 let dtoMsgs = messages.map { ChatMessageDTO(role: $0.role, content: $0.content, tool_calls: nil) }
                 let assistantDTO = try await chatService.send(messages: dtoMsgs)
                 if let text = assistantDTO.content, !text.isEmpty {
-                    let assistantMsg = Message(role: assistantDTO.role, content: text)
-                    messages.append(assistantMsg)
+                    messages.append(Message(role: assistantDTO.role, content: text))
 
-                    // Detect single-line route pattern with arrows
+                    // Detect route pattern
                     if text.contains(" -> ") && text.components(separatedBy: "->").count >= 5 {
-                        routeString = text
-                        showingRoute = true
-                    }
-                }
-                if let calls = assistantDTO.tool_calls {
-                    // For now, just show a placeholder message that the request was submitted
-                    for call in calls {
-                        let text = "\u{2705} Called \(call.function.name) with args: \(call.function.arguments)"
-                        let callMsg = Message(role: assistantDTO.role, content: text)
-                        messages.append(callMsg)
+                        onRouteDetected(text)
                     }
                 }
             } catch {
                 errorMessage = error.localizedDescription
             }
-            isSending = false
         }
     }
-
-    // MARK: - Session helpers
 
     private func startNewSession() {
         messages.removeAll()
@@ -151,7 +197,6 @@ struct ContentView: View {
 
     struct ChatBubble: View {
         let message: Message
-
         var isUser: Bool { message.role == "user" }
 
         var body: some View {

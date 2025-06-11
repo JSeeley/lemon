@@ -43,15 +43,29 @@ struct RouteView: View {
                         .padding(.top, leg.id == legs.first?.id ? 0 : 20)
 
                     HStack(alignment: .center) {
-                        // Dashed line
-                        Rectangle()
-                            .foregroundColor(.clear)
-                            .frame(height: 1)
-                            .overlay(
-                                Rectangle()
-                                    .stroke(style: StrokeStyle(lineWidth: 1, dash: [6]))
-                                    .foregroundColor(.gray.opacity(0.5))
+                        ZStack {
+                            // Dashed baseline
+                            Rectangle()
+                                .foregroundColor(.clear)
+                                .frame(height: 1)
+                                .overlay(
+                                    Rectangle()
+                                        .stroke(style: StrokeStyle(lineWidth: 1, dash: [6]))
+                                        .foregroundColor(.gray.opacity(0.5))
+                                )
+
+                            // Emoji + duration badge
+                            HStack(spacing: 4) {
+                                Text(leg.transportEmoji)
+                                Text(leg.duration)
+                                    .font(.subheadline)
+                            }
+                            .padding(.horizontal, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color(.systemBackground))
                             )
+                        }
                     }
                     .padding(.horizontal)
                 }
@@ -80,8 +94,11 @@ struct RouteView: View {
         }
 
         // Remove transport words to leave duration text
-        let duration = segment.replacingOccurrences(of: "(?i)(fly|flight|plane|by plane|train|by train|drive|driving|car|bus|by bus)", with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespaces)
+        var duration = segment.replacingOccurrences(of: "(?i)(fly|flight|plane|by plane|train|by train|drive|driving|car|bus|by bus)", with: "", options: .regularExpression)
+        // Remove common extra symbols such as "&" or "~"
+        duration = duration.replacingOccurrences(of: "&", with: "")
+        duration = duration.replacingOccurrences(of: "~", with: "")
+        duration = duration.trimmingCharacters(in: .whitespaces)
         return (emoji, duration)
     }
 }
