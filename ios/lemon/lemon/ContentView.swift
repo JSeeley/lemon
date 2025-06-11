@@ -7,16 +7,32 @@
 
 import SwiftUI
 
+// MARK: - Shared models
+
+struct Stop: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let days: Int
+    let hotel: String?
+}
+
+struct PlanData: Codable {
+    let route: String
+    let total_days: Int
+    let daily_budget: Double
+    let stops: [Stop]
+}
+
 /// Root view that hosts the TabView (Itinerary / To-Do / Chat).
 struct ContentView: View {
     enum Tab { case itinerary, todo, chat }
 
     @State private var selectedTab: Tab = .chat
-    @State private var routeString: String?
+    @State private var plan: PlanData?
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            ItineraryTab(route: routeString)
+            ItineraryTab(plan: plan)
                 .tabItem { Label("Itinerary", systemImage: "map") }
                 .tag(Tab.itinerary)
 
@@ -24,8 +40,8 @@ struct ContentView: View {
                 .tabItem { Label("To-Do", systemImage: "checkmark") }
                 .tag(Tab.todo)
 
-            ChatTab { newRoute in
-                routeString = newRoute
+            ChatTab { newPlan in
+                self.plan = newPlan
                 selectedTab = .itinerary
             }
             .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right") }
@@ -37,12 +53,12 @@ struct ContentView: View {
 // MARK: - Itinerary Tab
 
 struct ItineraryTab: View {
-    let route: String?
+    let plan: PlanData?
 
     var body: some View {
         NavigationStack {
-            if let route {                
-                RouteView(route: route)
+            if let plan {
+                RouteView(route: plan.route, stops: plan.stops)
             } else {
                 VStack(spacing: 16) {
                     Image(systemName: "map")
@@ -78,7 +94,7 @@ struct TodoTab: View {
 // MARK: - Chat Tab
 
 struct ChatTab: View {
-    typealias RouteHandler = (String) -> Void
+    typealias RouteHandler = (PlanData) -> Void
     let onRouteDetected: RouteHandler
 
     struct Message: Identifiable {
@@ -172,9 +188,13 @@ struct ChatTab: View {
                 if let text = assistantDTO.content, !text.isEmpty {
                     messages.append(Message(role: assistantDTO.role, content: text))
 
-                    // Detect route pattern
-                    if text.contains(" -> ") && text.components(separatedBy: "->").count >= 5 {
-                        onRouteDetected(text)
+                    // Try to decode plan JSON first
+                    if let data = text.data(using: .utf8),
+                       let decoded = try? JSONDecoder().decode(PlanData.self, from: data) {
+                        onRouteDetected(decoded)
+                    } else if text.contains(" -> ") && text.components(separatedBy: "->").count >= 5 {
+                        // Fallback to simple route detection (old format)
+                        onRouteDetected(PlanData(route: text, total_days: 0, daily_budget: 0, stops: []))
                     }
                 }
             } catch {

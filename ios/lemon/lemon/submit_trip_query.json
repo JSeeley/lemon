@@ -17,6 +17,21 @@
         "type": "string",
         "description": "The city from which the user will depart. Must be a valid worldwide city.",
         "x_initial_question": "Great! And from which city will you be departing?"
+      },
+      "daily_budget": {
+        "type": "number",
+        "description": "User's maximum allowed spend per night on lodging in USD.",
+        "default": 1000,
+        "minimum": 1,
+        "x_initial_question": "What's your approximate daily lodging budget in USD? (Optional, default is $1000)"
+      },
+      "duration": {
+        "type": "integer",
+        "description": "Total trip duration (in days)",
+        "default": 17,
+        "minimum": 1,
+        "maximum": 99,
+        "x_initial_question": "Roughly how many days will your whole trip last? (Optional, default is 17)"
       }
     },
     "required": [

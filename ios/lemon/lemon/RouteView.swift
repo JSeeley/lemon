@@ -7,6 +7,8 @@ struct RouteView: View {
     struct City: Identifiable {
         let id = UUID()
         let name: String
+        let days: Int?
+        let hotel: String?
     }
 
     struct Transport: Identifiable {
@@ -18,10 +20,16 @@ struct RouteView: View {
     private let cities: [City]
     private let transports: [Transport] // transports[i] connects cities[i] -> cities[i+1]
 
+    private let stopsByCity: [String: (days: Int, hotel: String?)]
+
     // Track which cards are expanded
     @State private var expandedIDs: Set<UUID> = []
 
-    init(route: String) {
+    init(route: String, stops: [Stop] = []) {
+        var sbc: [String: (days: Int, hotel: String?)] = [:]
+        stops.forEach { sbc[$0.name] = ($0.days, $0.hotel) }
+        self.stopsByCity = sbc
+
         // Parse "City -> Transport & duration -> City" repeated tokens
         let tokens = route.components(separatedBy: "->")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: ".")) }
@@ -34,7 +42,7 @@ struct RouteView: View {
         while i < tokens.count {
             // Expect pattern city, transport, city, transport, ... ending with city
             let cityName = tokens[i]
-            tmpCities.append(City(name: cityName))
+            tmpCities.append(City(name: cityName, days: sbc[cityName]?.days, hotel: sbc[cityName]?.hotel))
 
             if i + 2 < tokens.count {
                 let transportSegment = tokens[i + 1]
@@ -86,8 +94,15 @@ struct RouteView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(city.name)
-                        .font(.title3.weight(.semibold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(city.name)
+                            .font(.title3.weight(.semibold))
+                        if let d = city.days {
+                            Text("\(d) days")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                     Spacer()
                     Image(systemName: "chevron.down")
                         .rotationEffect(isExpanded ? Angle(degrees: 180) : .zero)
@@ -99,7 +114,11 @@ struct RouteView: View {
                 if isExpanded {
                     Divider()
                     VStack(alignment: .leading, spacing: 6) {
-                        ToDoRow(title: "Lodging")
+                        if let hotel = city.hotel {
+                            ToDoRow(title: "Lodging: \(hotel)")
+                        } else {
+                            ToDoRow(title: "Lodging (TBD)")
+                        }
                         ToDoRow(title: "Dinner")
                     }
                 }
@@ -199,5 +218,5 @@ struct RouteView: View {
 }
 
 #Preview {
-    RouteView(route: "Seattle -> Fly 10h -> Paris -> Train 6h -> Toulouse -> Car 3h -> Gordes -> Car 1.5h -> Saint Tropez -> Car 1.5h -> Nice -> Train 5h -> Paris -> Fly 10h -> Seattle")
+    RouteView(route: "Seattle -> Fly 10h -> Paris -> Train 6h -> Toulouse -> Car 3h -> Gordes -> Car 1.5h -> Saint Tropez -> Car 1.5h -> Nice -> Train 5h -> Paris -> Fly 10h -> Seattle", stops: [])
 } 
