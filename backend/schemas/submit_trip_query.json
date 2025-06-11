@@ -1,0 +1,26 @@
+{
+  "name": "submit_trip_query",
+  "description": "Collect all information needed to plan a trip itinerary.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "destination_cities": {
+        "type": "array",
+        "description": "List of cities the user wants to visit. Each must be a valid worldwide city.",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "departure_city": {
+        "type": "string",
+        "description": "The city from which the user will depart. Must be a valid worldwide city."
+      }
+    },
+    "required": [
+      "destination_cities",
+      "departure_city"
+    ],
+    "additionalProperties": false
+  }
+} 
