@@ -6,11 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vercel dev",
-    "start": "node api/plan.js",
-    "test": "node test-api.js"
+    "start": "node api/plan.js"
   },
   "dependencies": {
-    "openai": "^4.67.3",
-    "dotenv": "^16.3.1"
+    "openai": "^4.2.1"
   }
 } 

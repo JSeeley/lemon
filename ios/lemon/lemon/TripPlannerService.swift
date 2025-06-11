@@ -5,7 +5,7 @@ struct TripPlannerService {
         #if DEBUG
         return URL(string: "http://localhost:3000/api/plan")!
         #else
-        return URL(string: "https://backend-h29njyqyn-jseeleys-projects.vercel.app/api/plan.js")!
+        return URL(string: "https://backend-n4fvlxco1-jseeleys-projects.vercel.app/api/plan")!
         #endif
     }()
 
