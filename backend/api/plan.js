@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     const prompt = `You are Lemon, an expert travel planner. Craft a detailed, day-by-day itinerary for a trip to ${destination} from ${startDate} to ${endDate}. Number of travelers: ${travelers ?? 1}. Preferences: ${preferences ?? "None specified"}. Include transportation, lodging, dining and activities.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo-0125",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",

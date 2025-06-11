@@ -9,6 +9,6 @@
     "start": "node api/plan.js"
   },
   "dependencies": {
-    "openai": "^4.2.1"
+    "openai": "^4.29.1"
   }
 } 
