@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcworkspace
+*.xcodeproj/
+
+# Swift Package Manager
+/.build
+/.swiftpm
+
+# Vercel & Node
+backend/node_modules/
+.vercel/
+
+# Environment variables
+*.env
+
+# Python
+__pycache__/
+*.pyc
+
+env/
+venv/ 

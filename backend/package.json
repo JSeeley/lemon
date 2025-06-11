@@ -1,0 +1,14 @@
+{
+  "name": "lemon-backend",
+  "version": "0.1.0",
+  "description": "Serverless API for Lemon AI Travel Planner (deployed on Vercel)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node api/plan.js"
+  },
+  "dependencies": {
+    "openai": "^4.2.1"
+  }
+} 
