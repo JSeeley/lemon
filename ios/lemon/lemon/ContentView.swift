@@ -28,28 +28,13 @@ struct ContentView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
                             ForEach(messages) { message in
-                                HStack {
-                                    if message.role == "assistant" {
-                                        Text(message.content)
-                                            .padding(8)
-                                            .background(Color.gray.opacity(0.2))
-                                            .cornerRadius(10)
-                                        Spacer()
-                                    } else {
-                                        Spacer()
-                                        Text(message.content)
-                                            .padding(8)
-                                            .background(Color.blue.opacity(0.8))
-                                            .foregroundColor(.white)
-                                            .cornerRadius(10)
-                                    }
-                                }
-                                .id(message.id)
+                                ChatBubble(message: message)
+                                    .id(message.id)
                             }
                         }
                         .padding()
                     }
-                    .onChange(of: messages.count) { _ in
+                    .onChange(of: messages.count) { _, _ in
                         if let last = messages.last {
                             withAnimation {
                                 proxy.scrollTo(last.id, anchor: .bottom)
@@ -65,6 +50,8 @@ struct ContentView: View {
                 HStack {
                     TextField("Message", text: $inputText)
                         .textFieldStyle(.roundedBorder)
+                        .submitLabel(.send)
+                        .onSubmit(sendMessage)
                     Button(action: sendMessage) {
                         if isSending {
                             ProgressView()
@@ -72,10 +59,16 @@ struct ContentView: View {
                             Image(systemName: "paperplane.fill")
                         }
                     }
+                    .tint(.yellow)
                     .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
                 }
                 .padding()
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                LinearGradient(colors: [Color.white, Color.yellow.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
+            )
             .navigationTitle("🍋 Lemon")
             .onAppear {
                 if messages.isEmpty {
@@ -140,6 +133,30 @@ struct ContentView: View {
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    struct ChatBubble: View {
+        let message: Message
+
+        var isUser: Bool { message.role == "user" }
+
+        var body: some View {
+            HStack {
+                if isUser { Spacer() }
+                Text(isUser ? message.content : "🍋 " + message.content)
+                    .padding(12)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(isUser ? Color.blue.opacity(0.4) : Color.yellow.opacity(0.6), lineWidth: 1)
+                    )
+                    .foregroundColor(.primary)
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 2)
+                if !isUser { Spacer() }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
         }
     }
 }

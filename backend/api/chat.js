@@ -17,6 +17,28 @@ try {
   collectorTool = null;
 }
 
+// Helper to generate itinerary using OpenAI based on collected args
+async function generateItinerary(args) {
+  const { destination_cities, departure_city } = args;
+  if (!Array.isArray(destination_cities) || destination_cities.length === 0 || !departure_city) {
+    throw new Error("Missing destination_cities or departure_city for itinerary generation");
+  }
+
+  const destList = destination_cities.join(", ");
+  const itineraryPrompt = `You are Lemon, an expert travel planner. Craft a detailed, day-by-day itinerary for a trip departing from ${departure_city} that visits ${destList}. Include suggested modes of travel between cities, lodging, dining and activities.`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "You are Lemon, a helpful AI travel planner." },
+      { role: "user", content: itineraryPrompt }
+    ],
+    temperature: 0.7
+  });
+
+  return completion.choices[0].message.content;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -58,8 +80,31 @@ export default async function handler(req, res) {
       temperature: 0.7
     });
 
-    // Return the entire assistant message back to the client
-    const assistantMessage = completion.choices[0].message;
+    let assistantMessage = completion.choices[0].message;
+
+    // If the assistant is calling our function, handle it
+    if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      const call = assistantMessage.tool_calls[0];
+      if (call.type === "function" && call.function?.name === "submit_trip_query") {
+        try {
+          const args = JSON.parse(call.function.arguments || "{}");
+          const itinerary = await generateItinerary(args);
+
+          assistantMessage = {
+            role: "assistant",
+            content: itinerary
+          };
+        } catch (fnErr) {
+          console.error("Failed to run submit_trip_query", fnErr);
+          assistantMessage = {
+            role: "assistant",
+            content: "Sorry, I encountered an error while generating your itinerary. Please try again."
+          };
+        }
+      }
+    }
+
+    // Return the assistant message back to the client (itinerary or follow-up question)
     res.status(200).json({ message: assistantMessage });
   } catch (err) {
     console.error(err);
