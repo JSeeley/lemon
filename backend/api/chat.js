@@ -17,26 +17,27 @@ try {
   collectorTool = null;
 }
 
-// Helper to generate itinerary using OpenAI based on collected args
+// Helper to generate a concise city-to-city transportation route (no full itinerary)
 async function generateItinerary(args) {
   const { destination_cities, departure_city } = args;
   if (!Array.isArray(destination_cities) || destination_cities.length === 0 || !departure_city) {
-    throw new Error("Missing destination_cities or departure_city for itinerary generation");
+    throw new Error("Missing destination_cities or departure_city for route generation");
   }
 
   const destList = destination_cities.join(", ");
-  const itineraryPrompt = `You are Lemon, an expert travel planner. Craft a detailed, day-by-day itinerary for a trip departing from ${departure_city} that visits ${destList}. Include suggested modes of travel between cities, lodging, dining and activities.`;
+
+  const routePrompt = `A traveler is leaving from ${departure_city} and wants to visit the following cities: ${destList}.\n\nChoose the most time-efficient order to visit all cities and return to ${departure_city}. For every leg, recommend the main mode(s) of transportation followed by an approximate travel time.\n\nRespond with EXACTLY one line formatted like this (replace items in angle brackets):\n<City A> -> <Transport & ~duration> -> <City B> -> <Transport & ~duration> -> ... -> <City A>.\n\nDo not add any additional text, explanation, or formatting.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: "You are Lemon, a helpful AI travel planner." },
-      { role: "user", content: itineraryPrompt }
+      { role: "user", content: routePrompt }
     ],
-    temperature: 0.7
+    temperature: 0.3
   });
 
-  return completion.choices[0].message.content;
+  return completion.choices[0].message.content.trim();
 }
 
 export default async function handler(req, res) {
@@ -88,11 +89,11 @@ export default async function handler(req, res) {
       if (call.type === "function" && call.function?.name === "submit_trip_query") {
         try {
           const args = JSON.parse(call.function.arguments || "{}");
-          const itinerary = await generateItinerary(args);
+          const route = await generateItinerary(args);
 
           assistantMessage = {
             role: "assistant",
-            content: itinerary
+            content: route
           };
         } catch (fnErr) {
           console.error("Failed to run submit_trip_query", fnErr);

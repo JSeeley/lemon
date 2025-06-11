@@ -17,6 +17,8 @@ struct ContentView: View {
     @State private var messages: [Message] = []
     @State private var inputText: String = ""
     @State private var isSending = false
+    @State private var showingRoute = false
+    @State private var routeString: String?
     @State private var errorMessage: String?
 
     private let chatService = ChatService()
@@ -82,6 +84,11 @@ struct ContentView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingRoute) {
+                if let route = routeString {
+                    RouteView(route: route)
+                }
+            }
         }
     }
 
@@ -101,6 +108,12 @@ struct ContentView: View {
                 if let text = assistantDTO.content, !text.isEmpty {
                     let assistantMsg = Message(role: assistantDTO.role, content: text)
                     messages.append(assistantMsg)
+
+                    // Detect single-line route pattern with arrows
+                    if text.contains(" -> ") && text.components(separatedBy: "->").count >= 5 {
+                        routeString = text
+                        showingRoute = true
+                    }
                 }
                 if let calls = assistantDTO.tool_calls {
                     // For now, just show a placeholder message that the request was submitted
